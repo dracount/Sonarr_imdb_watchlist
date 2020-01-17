@@ -1,0 +1,51 @@
+import pandas as pd
+import time
+import json
+import urllib
+from urllib.request import urlopen
+from selenium import webdriver
+
+#change details to your sonarr api
+SONARR_API_URL = 'http://localhost:8000/sonarr/api/series?apikey=0000000000000000000000'
+#copy the same for multiple lists
+LIST_ID_1 = 'https://www.imdb.com/list/ls00000000/export'
+LIST_ID_2 = 'https://www.imdb.com/list/ls11111111/export'
+
+
+options = webdriver.ChromeOptions()
+options.add_argument('-headless')
+options.add_argument('-no-sandbox')
+options.add_argument('-disable-dev-shm-usage')
+
+
+data = pd.read_csv(LIST_ID_1)
+data2 = pd.read_csv(LIST_ID_2)
+data = data.append(data2)
+
+current = pd.read_json('SONARR_API_URL')
+
+external_title = data[['Title','Title Type','URL']]
+external_title = external_title.loc[external_title['Title Type'] == 'tvSeries']
+
+check = external_title[~external_title.Title.isin(current.title)]
+check = check[['Title','URL']]
+check.URL = check.URL.str.lstrip('https://www.imdb.com/title/tt')
+check.URL = check.URL.str.rstrip('/')
+check = check.rename(columns={'Title': 'title','URL':'imdb'})
+
+wd = webdriver.Chrome('chromedriver',options=options)
+for series_to_search in check.imdb.values:
+    url = 'http://api.tvmaze.com/lookup/shows?imdb=tt'+series_to_search
+    response = urlopen(url)
+    data = json.loads(response.read())
+    tvdb = 'tvdb:' + str(data['externals']['thetvdb'])
+    wd.get('http://localhost:8000/sonarr/addseries')
+    try:
+        wd.find_element_by_xpath('//*[@id="add-series-workspace"]/div/div[1]/div/input').send_keys(tvdb)    
+        time.sleep(10)
+        wd.find_element_by_xpath('//*[@id="search-result"]/div/div/div/div/div[2]/div[4]/div/div/button[1]').click()
+    except:
+        print('failed to find element')
+    
+    
+wd.quit()
