@@ -35,8 +35,6 @@ def get_sonarr_series_ids(sonarr_api_key):
     return sonarr_series
 
 def get_imdb_series_ids():
-    
-
     imdb_series = []
 
     for url in imdb_lists:
@@ -64,9 +62,12 @@ def get_tvdbId_from_imdbId(series_to_add):
     tvdb_series_ids = []
     for series_to_search in series_to_add:
         url = 'http://api.tvmaze.com/lookup/shows?imdb=' + series_to_search
-        response = urlopen(url)
-        data = json.loads(response.read())
-        tvdb_series_ids.append(str(data['externals']['thetvdb']))
+        try:
+            response = urlopen(url).read()
+            data = json.loads(response.decode('utf-8'))
+            tvdb_series_ids.append(str(data['externals']['thetvdb']))
+        except:
+            logger.info(dt + ' : failed to find imdb show: ' + series_to_search + ' to Sonarr. Show: https://www.imdb.com/title/' + series_to_search +'/')
     return tvdb_series_ids
 
 def get_token_from_tvdb():
